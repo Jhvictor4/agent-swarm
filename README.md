@@ -109,6 +109,10 @@ Drop the included `SKILL.md` into your OpenClaw skills directory to use this as 
 - Each worktree is a full copy — watch disk space on large repos
 - Agents run with `--dangerously-skip-permissions` — use on trusted repos only
 
+## Inspired By
+
+- [AI Agent Swarm: The One Person Dev Team](https://dailykoin.com/ai-agent-swarm/) by Elvis — the original workflow that inspired this implementation
+
 ## License
 
 MIT
