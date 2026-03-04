@@ -1,10 +1,12 @@
 #!/bin/bash
-# spawn-agent.sh — Spawn a Claude Code agent in its own worktree + tmux session
+# spawn-agent.sh — Spawn a coding agent in its own worktree + tmux session
+# Supports: Claude Code (default), Codex, Gemini — via happy CLI
 # Usage: spawn-agent.sh <task-id> <repo-path> <branch-name> <prompt-file> [model]
 #
 # Example:
 #   spawn-agent.sh feat-templates ~/project-geo feat/custom-templates /tmp/prompt.md claude-sonnet-4-20250514
-#   spawn-agent.sh fix-bug ~/other-repo fix/login-bug /tmp/prompt.md claude-opus-4-6
+#   spawn-agent.sh fix-bug ~/other-repo fix/login-bug /tmp/prompt.md gpt-5.3-codex
+#   spawn-agent.sh gen-docs ~/my-app docs/gen /tmp/prompt.md gemini-2.5-pro
 
 set -euo pipefail
 
@@ -49,11 +51,25 @@ if [ -f "package.json" ]; then
   fi
 fi
 
-# Launch claude in tmux (source shell profile for PATH)
-CLAUDE_BIN=$(which claude)
+# Build command based on model
+HAPPY_BIN=$(which happy 2>/dev/null || echo "happy")
+case "$MODEL" in
+  gpt-*|codex-*|o1-*|o3-*|o4-*)
+    AGENT_CMD="$HAPPY_BIN codex --model $MODEL --dangerously-skip-permissions -p \"\$(cat '$PROMPT_FILE')\""
+    ;;
+  gemini-*)
+    AGENT_CMD="$HAPPY_BIN gemini --model $MODEL -p \"\$(cat '$PROMPT_FILE')\""
+    ;;
+  *)
+    # Default: Claude Code
+    AGENT_CMD="$HAPPY_BIN --model $MODEL --dangerously-skip-permissions -p \"\$(cat '$PROMPT_FILE')\""
+    ;;
+esac
+
+# Launch agent in tmux
 tmux kill-session -t "$TMUX_SESSION" 2>/dev/null || true
 tmux new-session -d -s "$TMUX_SESSION" -c "$WORKDIR" \
-  "export PATH=\"/opt/homebrew/bin:/usr/local/bin:\$PATH\"; $CLAUDE_BIN --model $MODEL --dangerously-skip-permissions -p \"\$(cat '$PROMPT_FILE')\" 2>&1 | tee $SWARM_DIR/logs/${TASK_ID}.log; echo 'AGENT_DONE' >> $SWARM_DIR/logs/${TASK_ID}.log"
+  "export PATH=\"/opt/homebrew/bin:/usr/local/bin:\$PATH\"; $AGENT_CMD 2>&1 | tee $SWARM_DIR/logs/${TASK_ID}.log; echo 'AGENT_DONE' >> $SWARM_DIR/logs/${TASK_ID}.log"
 
 # Register task
 TASK_JSON=$(cat <<EOF
